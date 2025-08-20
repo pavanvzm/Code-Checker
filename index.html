@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Code Review Bot</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; transition: all 0.3s ease; }
+        body.dark { background: #1a1a1a; color: #e0e0e0; }
+
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; transition: all 0.3s ease; }
+        .dark .container { background: #2d2d2d; color: #e0e0e0; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+        .theme-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer; }
+        .dark .theme-btn { background: #fff; color: #333; }
+
+        .input-area, .output-area { width: 48%; display: inline-block; vertical-align: top; }
+
+        textarea { width: 100%; height: 400px; font-family: monospace; padding: 10px; border: 1px solid #ddd; background: white; transition: all 0.3s ease; }
+        .dark textarea { background: #3d3d3d; border-color: #555; color: #e0e0e0; }
+
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 10px 5px 10px 0; cursor: pointer; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+
+        .results { border: 1px solid #ddd; padding: 15px; min-height: 300px; background: #f9f9f9; transition: all 0.3s ease; }
+        .dark .results { background: #383838; border-color: #555; color: #e0e0e0; }
+
+        .issue { margin: 10px 0; padding: 10px; border-left: 4px solid #dc3545; background: white; transition: all 0.3s ease; }
+        .dark .issue { background: #404040; }
+        .issue.medium { border-left-color: #ffc107; }
+        .issue.low { border-left-color: #28a745; }
+
+        .severity { font-weight: bold; text-transform: uppercase; }
+        .critical { color: #dc3545; }
+        .high { color: #fd7e14; }
+        .medium { color: #ffc107; }
+        .low { color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Code Review Bot</h1>
+            <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙 Dark</button>
+        </div>
+
+        <div class="input-area">
+            <h3>Code Input</h3>
+            <textarea id="codeInput" placeholder="Paste your code here...">
+# Example Python code with issues
+def bad_function(a, b, c, d, e):  # Too many parameters
+    if a>b:  # No spaces around operators
+        print("Debug message")  # Don't use print
+        return a*b*c*d*e
+    return 0
+
+class myclass:  # Bad naming
+    def process(self, data):
+        result = []
+        for i in range(len(data)):  # Use enumerate instead
+            result.append(data[i] * 2)
+        return result
+            </textarea>
+            <br>
+            <button onclick="analyzeCode()">🔍 Analyze Code</button>
+            <button onclick="clearCode()">🗑️ Clear</button>
+            <button onclick="loadExample()">💡 Load Example</button>
+        </div>
+
+        <div class="output-area" style="margin-left: 20px;">
+            <h3>Analysis Results</h3>
+            <div id="results" class="results">
+                Click "Analyze Code" to see results
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const examples = {
+            python: `# Python code with multiple issues
+def calculate_something(x, y, z, a, b, c):  # Too many params
+    if x>y:  # Bad spacing
+        print("Processing...")  # Use logging instead
+        result = x*y*z*a*b*c  # Complex expression
+        return result
+    else:
+        return 0
+
+class myClass:  # Should be MyClass
+    def process_data(self, data):
+        new_list = []
+        for i in range(len(data)):  # Use enumerate
+            if data[i] > 0:
+                new_list.append(data[i] * 2)
+        return new_list`,
+
+            javascript: `// JavaScript with issues
+var globalVar = "avoid var";  // Use let/const
+var result;
+
+function processData(a, b, c, d, e, f) {  // Too many params
+    if (a == b) {  // Use === instead
+        console.log("Debug");  // Remove from production
+        return a + b + c + d + e + f;
+    }
+    return null;
+}`,
+
+            security: `# Security issues example
+import os
+user_input = input("Enter command: ")
+os.system(user_input)  # Command injection!
+eval(user_input)  # Code injection!`
+        };
+
+        function analyzeCode() {
+            const code = document.getElementById('codeInput').value;
+            const resultsDiv = document.getElementById('results');
+
+            if (!code.trim()) {
+                resultsDiv.innerHTML = '<p style="color: red;">Please enter code to analyze!</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p>🔄 Analyzing...</p>';
+
+            setTimeout(() => {
+                const issues = performAnalysis(code);
+                displayResults(issues);
+            }, 1000);
+        }
+
+        function performAnalysis(code) {
+            const issues = [];
+            const lines = code.split('\n');
+
+            lines.forEach((line, index) => {
+                const lineNum = index + 1;
+
+                // Line length check
+                if (line.length > 88) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'low',
+                        message: `Line too long (${line.length} chars)`,
+                        suggestion: 'Break long lines'
+                    });
+                }
+
+                // Spacing around operators
+                if (/[a-zA-Z0-9][+\-*\/><][a-zA-Z0-9]/.test(line)) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'low',
+                        message: 'Missing spaces around operators',
+                        suggestion: 'Add spaces: a + b instead of a+b'
+                    });
+                }
+
+                // Print statements
+                if (line.includes('print(')) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'medium',
+                        message: 'Use of print() detected',
+                        suggestion: 'Use logging instead of print'
+                    });
+                }
+
+                // Security issues
+                if (line.includes('eval(') || line.includes('exec(')) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'critical',
+                        message: 'Dangerous function usage',
+                        suggestion: 'Avoid eval() and exec() - security risk!'
+                    });
+                }
+
+                if (line.includes('os.system(')) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'critical',
+                        message: 'Command injection risk',
+                        suggestion: 'Use subprocess with proper input validation'
+                    });
+                }
+
+                // JavaScript issues
+                if (line.includes('var ')) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'medium',
+                        message: 'Use of var detected',
+                        suggestion: "Use 'let' or 'const' instead"
+                    });
+                }
+
+                if (line.includes('==') && !line.includes('===')) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'medium',
+                        message: 'Loose equality operator',
+                        suggestion: "Use '===' for strict equality"
+                    });
+                }
+
+                // Range(len()) pattern
+                if (line.includes('range(len(')) {
+                    issues.push({
+                        line: lineNum,
+                        severity: 'medium',
+                        message: 'Inefficient range(len()) pattern',
+                        suggestion: 'Use enumerate() instead'
+                    });
+                }
+            });
+
+            // Function parameter count
+            const funcMatches = code.match(/def\s+\w+\s*\([^)]*\):|function\s+\w+\s*\([^)]*\)/g);
+            if (funcMatches) {
+                funcMatches.forEach(match => {
+                    const params = match.match(/\(([^)]*)\)/)[1].split(',').filter(p => p.trim());
+                    if (params.length > 5) {
+                        issues.push({
+                            line: 1,
+                            severity: 'medium',
+                            message: `Function has ${params.length} parameters (too many)`,
+                            suggestion: 'Consider using fewer parameters or a config object'
+                        });
+                    }
+                });
+            }
+
+            return issues;
+        }
+
+        function displayResults(issues) {
+            const resultsDiv = document.getElementById('results');
+
+            if (issues.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div style="text-align: center; color: green; padding: 20px;">
+                        <h3>🎉 Excellent!</h3>
+                        <p>No issues found in your code!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const issuesHtml = issues.map(issue => `
+                <div class="issue ${issue.severity}">
+                    <div><span class="severity ${issue.severity}">Line ${issue.line}: ${issue.severity.toUpperCase()}</span></div>
+                    <div><strong>${issue.message}</strong></div>
+                    ${issue.suggestion ? `<div style="color: #666; font-style: italic;">💡 ${issue.suggestion}</div>` : ''}
+                </div>
+            `).join('');
+
+            const summary = `
+                <div style="background: #e9ecef; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                    <strong>Summary:</strong> Found ${issues.length} issues
+                    (Critical: ${issues.filter(i => i.severity === 'critical').length},
+                    Medium: ${issues.filter(i => i.severity === 'medium').length},
+                    Low: ${issues.filter(i => i.severity === 'low').length})
+                </div>
+            `;
+
+            resultsDiv.innerHTML = summary + issuesHtml;
+        }
+
+        function clearCode() {
+            document.getElementById('codeInput').value = '';
+            document.getElementById('results').innerHTML = 'Click "Analyze Code" to see results';
+        }
+
+        function loadExample() {
+            const exampleKeys = Object.keys(examples);
+            const randomKey = exampleKeys[Math.floor(Math.random() * exampleKeys.length)];
+            document.getElementById('codeInput').value = examples[randomKey];
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeBtn');
+
+            body.classList.toggle('dark');
+
+            if (body.classList.contains('dark')) {
+                btn.innerHTML = '☀️ Light';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                btn.innerHTML = '🌙 Dark';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Load saved theme on page load
+        window.onload = function() {
+            const savedTheme = localStorage.getItem('theme');
+            const body = document.body;
+            const btn = document.getElementById('themeBtn');
+
+            if (savedTheme === 'dark') {
+                body.classList.add('dark');
+                btn.innerHTML = '☀️ Light';
+            }
+        };
+    </script>
+</body>
+</html>
