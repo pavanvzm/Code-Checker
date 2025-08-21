@@ -1,1 +1,1 @@
-# Code-Checker
+ Web-based code review tool with auto-correct
